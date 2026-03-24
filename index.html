@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nifty 50 Dip Buying Simulator</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --card: #12121a;
+    --border: #1e1e2e;
+    --text: #e0e0e8;
+    --muted: #6b6b80;
+    --green: #00d26a;
+    --red: #ff4757;
+    --accent: #7c5cfc;
+    --accent2: #00d26a;
+    --yellow: #ffc048;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  .header {
+    padding: 28px 32px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 4px;
+  }
+  .header h1 span { color: var(--accent); }
+  .header p {
+    font-size: 13px;
+    color: var(--muted);
+    max-width: 600px;
+  }
+  .controls {
+    display: flex;
+    gap: 16px;
+    padding: 20px 32px;
+    flex-wrap: wrap;
+    align-items: end;
+    border-bottom: 1px solid var(--border);
+  }
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .control-group label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--muted);
+  }
+  .control-group input, .control-group select {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    min-width: 140px;
+  }
+  .control-group input:focus, .control-group select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  button.run {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 8px 24px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    height: 35px;
+    transition: opacity 0.15s;
+  }
+  button.run:hover { opacity: 0.85; }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    padding: 20px 32px;
+  }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .stat-card .label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .stat-card .value {
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .stat-card .sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .positive { color: var(--green); }
+  .negative { color: var(--red); }
+  .charts {
+    padding: 20px 32px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .chart-card h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .chart-container {
+    position: relative;
+    height: 300px;
+  }
+  .purchases-table-wrap {
+    padding: 0 32px 32px;
+  }
+  .purchases-table-wrap h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .table-scroll {
+    max-height: 350px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  thead th {
+    position: sticky;
+    top: 0;
+    background: var(--card);
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  tbody tr:hover { background: rgba(124, 92, 252, 0.05); }
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .pill.buy { background: rgba(0, 210, 106, 0.15); color: var(--green); }
+  .pill.drawdown { background: rgba(255, 71, 87, 0.15); color: var(--red); }
+  .loading {
+    display: none;
+    padding: 40px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .loading.show { display: block; }
+  .two-col { grid-template-columns: 1fr 1fr; }
+  @media (max-width: 768px) {
+    .two-col { grid-template-columns: 1fr; }
+    .controls { padding: 16px; }
+    .stats-grid, .charts, .purchases-table-wrap { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>Nifty 50</span> Dip Buying Simulator</h1>
+  <p>Buy X amount of Nifty 50 ETF for every -Y% fall from all-time high. Backtest with real data from 2010-2026.</p>
+</div>
+
+<div class="controls">
+  <div class="control-group">
+    <label>Start Date</label>
+    <input type="date" id="startDate" value="2020-01-01" min="2010-10-14" max="2026-03-20">
+  </div>
+  <div class="control-group">
+    <label>End Date</label>
+    <input type="date" id="endDate" value="2026-03-20" min="2010-10-14" max="2026-03-20">
+  </div>
+  <div class="control-group">
+    <label>Buy Amount (Rs)</label>
+    <input type="number" id="buyAmount" value="100000" step="10000" min="1000">
+  </div>
+  <div class="control-group">
+    <label>Dip Threshold (%)</label>
+    <input type="number" id="dipThreshold" value="1" step="0.5" min="0.5" max="20">
+  </div>
+  <div class="control-group">
+    <label>Strategy</label>
+    <select id="strategy">
+      <option value="cumulative">Cumulative (buy at each -N% from ATH)</option>
+      <option value="incremental">Incremental (buy on each fresh -N% drop)</option>
+    </select>
+  </div>
+  <button class="run" onclick="runSimulation()">Run Simulation</button>
+</div>
+
+<div class="loading" id="loading">Loading Nifty data...</div>
+
+<div id="results" style="display:none;">
+  <div class="stats-grid" id="statsGrid"></div>
+
+  <div class="charts two-col">
+    <div class="chart-card">
+      <h3>Nifty 50 Price & Buy Points</h3>
+      <div class="chart-container"><canvas id="priceChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>Portfolio Value vs Total Invested</h3>
+      <div class="chart-container"><canvas id="portfolioChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="charts">
+    <div class="chart-card">
+      <h3>Drawdown from ATH (%)</h3>
+      <div class="chart-container"><canvas id="drawdownChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="purchases-table-wrap">
+    <h3>Purchase Log</h3>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Date</th>
+            <th>Nifty Price</th>
+            <th>ATH</th>
+            <th>Drawdown</th>
+            <th>Amount</th>
+            <th>Units</th>
+            <th>Cumulative Invested</th>
+            <th>Portfolio Value</th>
+            <th>P&L</th>
+          </tr>
+        </thead>
+        <tbody id="purchaseLog"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+let allData = [];
+let priceChartInst, portfolioChartInst, drawdownChartInst;
+
+const DATA_FILES = [
+  'NIFTY_FUT_2010_2013.json',
+  'NIFTY_FUT_2014_2017.json',
+  'NIFTY_FUT_2018_2021.json',
+  'NIFTY_FUT_2022_2026.json',
+];
+
+async function loadData() {
+  document.getElementById('loading').classList.add('show');
+  const all = [];
+  for (const f of DATA_FILES) {
+    try {
+      const res = await fetch(`data/${f}`);
+      const json = await res.json();
+      all.push(...json);
+    } catch (e) {
+      console.warn(`Failed to load ${f}:`, e);
+    }
+  }
+  all.sort((a, b) => new Date(a.date) - new Date(b.date));
+  // Deduplicate by date
+  const seen = new Set();
+  allData = all.filter(d => {
+    const key = d.date.slice(0, 10);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  document.getElementById('loading').classList.remove('show');
+  console.log(`Loaded ${allData.length} trading days`);
+  // Set date input bounds from actual data
+  if (allData.length > 0) {
+    const minDate = allData[0].date.slice(0, 10);
+    const maxDate = allData[allData.length - 1].date.slice(0, 10);
+    document.getElementById('startDate').min = minDate;
+    document.getElementById('startDate').max = maxDate;
+    document.getElementById('endDate').min = minDate;
+    document.getElementById('endDate').max = maxDate;
+    document.getElementById('endDate').value = maxDate;
+  }
+  runSimulation();
+}
+
+function fmt(n) {
+  return new Intl.NumberFormat('en-IN').format(Math.round(n));
+}
+
+function fmtPct(n) {
+  return (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+}
+
+// XIRR calculation using Newton-Raphson method
+function computeXIRR(purchases, finalValue, finalDateStr) {
+  if (purchases.length === 0) return null;
+
+  // Cash flows: negative for investments, positive for final redemption
+  const cashFlows = [];
+  const dates = [];
+
+  for (const p of purchases) {
+    cashFlows.push(-p.amount);
+    dates.push(new Date(p.date));
+  }
+  // Final redemption
+  cashFlows.push(finalValue);
+  dates.push(new Date(finalDateStr));
+
+  const d0 = dates[0].getTime();
+  // Convert dates to year fractions from first date
+  const yearFracs = dates.map(d => (d.getTime() - d0) / (365.25 * 24 * 3600 * 1000));
+
+  // NPV at rate r
+  function npv(r) {
+    let sum = 0;
+    for (let i = 0; i < cashFlows.length; i++) {
+      sum += cashFlows[i] / Math.pow(1 + r, yearFracs[i]);
+    }
+    return sum;
+  }
+
+  // Derivative of NPV
+  function dnpv(r) {
+    let sum = 0;
+    for (let i = 0; i < cashFlows.length; i++) {
+      if (yearFracs[i] === 0) continue;
+      sum += -yearFracs[i] * cashFlows[i] / Math.pow(1 + r, yearFracs[i] + 1);
+    }
+    return sum;
+  }
+
+  // Newton-Raphson
+  let rate = 0.1; // initial guess 10%
+  for (let iter = 0; iter < 200; iter++) {
+    const f = npv(rate);
+    const df = dnpv(rate);
+    if (Math.abs(df) < 1e-12) break;
+    const newRate = rate - f / df;
+    if (Math.abs(newRate - rate) < 1e-9) {
+      rate = newRate;
+      break;
+    }
+    rate = newRate;
+    // Guard against divergence
+    if (rate < -0.99) rate = -0.99;
+    if (rate > 10) rate = 10;
+  }
+
+  // Verify convergence
+  if (Math.abs(npv(rate)) > 1) return null;
+  return rate * 100;
+}
+
+function runSimulation() {
+  const startDate = document.getElementById('startDate').value;
+  const endDate = document.getElementById('endDate').value;
+  const buyAmount = parseFloat(document.getElementById('buyAmount').value);
+  const dipThreshold = parseFloat(document.getElementById('dipThreshold').value);
+  const strategy = document.getElementById('strategy').value;
+
+  const data = allData.filter(d => d.date.slice(0, 10) >= startDate && d.date.slice(0, 10) <= endDate);
+  if (data.length === 0) return;
+
+  // Compute running ATH from ALL data up to start, then continue
+  let ath = 0;
+  for (const d of allData) {
+    if (d.date.slice(0, 10) > startDate) break;
+    ath = Math.max(ath, d.close);
+  }
+
+  const purchases = [];
+  const dailyData = [];
+  let totalUnits = 0;
+  let totalInvested = 0;
+  let lastBuyLevel = 0; // for cumulative: last threshold level that triggered a buy
+
+  for (const d of data) {
+    const price = d.close;
+    const dateStr = d.date.slice(0, 10);
+    ath = Math.max(ath, price);
+    const drawdownPct = ((ath - price) / ath) * 100;
+
+    let bought = false;
+
+    if (strategy === 'cumulative') {
+      // Buy at each cumulative threshold: -1%, -2%, -3% etc from ATH
+      const currentLevel = Math.floor(drawdownPct / dipThreshold);
+      while (currentLevel > lastBuyLevel) {
+        lastBuyLevel++;
+        const units = buyAmount / price;
+        totalUnits += units;
+        totalInvested += buyAmount;
+        purchases.push({
+          date: dateStr,
+          price,
+          ath,
+          drawdownPct: (lastBuyLevel * dipThreshold),
+          amount: buyAmount,
+          units,
+          totalInvested,
+          portfolioValue: totalUnits * price,
+        });
+        bought = true;
+      }
+      // Reset levels when new ATH
+      if (price >= ath) lastBuyLevel = 0;
+    } else {
+      // Incremental: buy whenever drawdown crosses a fresh N% threshold
+      const currentLevel = Math.floor(drawdownPct / dipThreshold);
+      if (currentLevel > lastBuyLevel && drawdownPct >= dipThreshold) {
+        for (let lvl = lastBuyLevel + 1; lvl <= currentLevel; lvl++) {
+          const units = buyAmount / price;
+          totalUnits += units;
+          totalInvested += buyAmount;
+          purchases.push({
+            date: dateStr,
+            price,
+            ath,
+            drawdownPct: lvl * dipThreshold,
+            amount: buyAmount,
+            units,
+            totalInvested,
+            portfolioValue: totalUnits * price,
+          });
+          bought = true;
+        }
+      }
+      lastBuyLevel = currentLevel;
+    }
+
+    const portfolioValue = totalUnits * price;
+    dailyData.push({
+      date: dateStr,
+      price,
+      ath,
+      drawdownPct,
+      portfolioValue,
+      totalInvested,
+      bought,
+    });
+  }
+
+  renderResults(dailyData, purchases, totalUnits, totalInvested);
+}
+
+function renderResults(dailyData, purchases, totalUnits, totalInvested) {
+  document.getElementById('results').style.display = 'block';
+
+  const lastDay = dailyData[dailyData.length - 1];
+  const currentValue = totalUnits * lastDay.price;
+  const pnl = currentValue - totalInvested;
+  const pnlPct = totalInvested > 0 ? (pnl / totalInvested) * 100 : 0;
+  const maxDrawdown = Math.max(...dailyData.map(d => d.drawdownPct));
+  const avgBuyPrice = totalInvested > 0 ? totalInvested / totalUnits : 0;
+
+  // Absolute return
+  const firstDate = new Date(dailyData[0].date);
+  const lastDate = new Date(lastDay.date);
+  const years = (lastDate - firstDate) / (365.25 * 24 * 3600 * 1000);
+
+  // XIRR: Newton's method on cash flows
+  const xirr = computeXIRR(purchases, currentValue, lastDay.date);
+
+  // Stats
+  const statsHTML = `
+    <div class="stat-card">
+      <div class="label">Total Invested</div>
+      <div class="value">Rs ${fmt(totalInvested)}</div>
+      <div class="sub">${purchases.length} purchases over ${years.toFixed(1)}y</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Current Value</div>
+      <div class="value ${pnl >= 0 ? 'positive' : 'negative'}">Rs ${fmt(currentValue)}</div>
+      <div class="sub">@ Nifty ${fmt(lastDay.price)}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Absolute Return</div>
+      <div class="value ${pnl >= 0 ? 'positive' : 'negative'}">${fmtPct(pnlPct)}</div>
+      <div class="sub ${pnl >= 0 ? 'positive' : 'negative'}">Rs ${fmt(Math.abs(pnl))} ${pnl >= 0 ? 'profit' : 'loss'}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">XIRR (IRR)</div>
+      <div class="value ${xirr >= 0 ? 'positive' : 'negative'}">${xirr !== null ? xirr.toFixed(1) + '%' : 'N/A'}</div>
+      <div class="sub">annualized, time-weighted</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Avg Buy Price</div>
+      <div class="value">Rs ${fmt(avgBuyPrice)}</div>
+      <div class="sub">${lastDay.price > avgBuyPrice ? '+' : ''}${(((lastDay.price - avgBuyPrice) / avgBuyPrice) * 100).toFixed(1)}% vs current</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Max Drawdown</div>
+      <div class="value negative">${maxDrawdown.toFixed(1)}%</div>
+      <div class="sub">from ATH</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Total Units</div>
+      <div class="value">${totalUnits.toFixed(2)}</div>
+      <div class="sub">Nifty 50 ETF</div>
+    </div>
+  `;
+  document.getElementById('statsGrid').innerHTML = statsHTML;
+
+  // Charts
+  const chartDefaults = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#6b6b80', font: { family: 'SF Mono, monospace', size: 11 } } } },
+    scales: {
+      x: {
+        type: 'time',
+        time: { unit: 'month', displayFormats: { month: 'MMM yy' } },
+        ticks: { color: '#6b6b80', font: { size: 10 } },
+        grid: { color: 'rgba(255,255,255,0.04)' },
+      },
+      y: {
+        ticks: { color: '#6b6b80', font: { size: 10 } },
+        grid: { color: 'rgba(255,255,255,0.04)' },
+      }
+    }
+  };
+
+  // Sample data for performance (every Nth point)
+  const sampleRate = Math.max(1, Math.floor(dailyData.length / 500));
+  const sampled = dailyData.filter((_, i) => i % sampleRate === 0 || i === dailyData.length - 1);
+
+  // Price chart
+  if (priceChartInst) priceChartInst.destroy();
+  const buyPoints = purchases.map(p => ({ x: p.date, y: p.price }));
+  priceChartInst = new Chart(document.getElementById('priceChart'), {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: 'Nifty 50',
+          data: sampled.map(d => ({ x: d.date, y: d.price })),
+          borderColor: '#7c5cfc',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          fill: false,
+          tension: 0.1,
+        },
+        {
+          label: 'ATH',
+          data: sampled.map(d => ({ x: d.date, y: d.ath })),
+          borderColor: 'rgba(255,192,72,0.3)',
+          borderWidth: 1,
+          borderDash: [4, 4],
+          pointRadius: 0,
+          fill: false,
+        },
+        {
+          label: `Buy (Rs ${fmt(parseFloat(document.getElementById('buyAmount').value))})`,
+          data: buyPoints,
+          type: 'scatter',
+          backgroundColor: '#00d26a',
+          borderColor: '#00d26a',
+          pointRadius: 5,
+          pointStyle: 'triangle',
+        }
+      ]
+    },
+    options: {
+      ...chartDefaults,
+      plugins: {
+        ...chartDefaults.plugins,
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if (ctx.datasetIndex === 2) {
+                const p = purchases[ctx.dataIndex];
+                return `Buy @ ${fmt(p.price)} | -${p.drawdownPct.toFixed(1)}% from ATH`;
+              }
+              return `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // Portfolio chart
+  if (portfolioChartInst) portfolioChartInst.destroy();
+  portfolioChartInst = new Chart(document.getElementById('portfolioChart'), {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: 'Portfolio Value',
+          data: sampled.map(d => ({ x: d.date, y: d.portfolioValue })),
+          borderColor: '#00d26a',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          fill: true,
+          backgroundColor: 'rgba(0, 210, 106, 0.08)',
+          tension: 0.1,
+        },
+        {
+          label: 'Total Invested',
+          data: sampled.map(d => ({ x: d.date, y: d.totalInvested })),
+          borderColor: '#ff4757',
+          borderWidth: 1.5,
+          borderDash: [4, 4],
+          pointRadius: 0,
+          fill: false,
+        }
+      ]
+    },
+    options: {
+      ...chartDefaults,
+      scales: {
+        ...chartDefaults.scales,
+        y: {
+          ...chartDefaults.scales.y,
+          ticks: {
+            ...chartDefaults.scales.y.ticks,
+            callback: v => 'Rs ' + fmt(v),
+          }
+        }
+      }
+    }
+  });
+
+  // Drawdown chart
+  if (drawdownChartInst) drawdownChartInst.destroy();
+  const thresholds = [];
+  const maxLevels = Math.ceil(Math.max(...dailyData.map(d => d.drawdownPct)) / parseFloat(document.getElementById('dipThreshold').value));
+  for (let i = 1; i <= Math.min(maxLevels, 20); i++) {
+    thresholds.push({
+      label: `-${(i * parseFloat(document.getElementById('dipThreshold').value)).toFixed(0)}%`,
+      data: sampled.map(d => ({ x: d.date, y: -(i * parseFloat(document.getElementById('dipThreshold').value)) })),
+      borderColor: 'rgba(255,71,87,0.15)',
+      borderWidth: 1,
+      borderDash: [2, 4],
+      pointRadius: 0,
+      fill: false,
+    });
+  }
+  drawdownChartInst = new Chart(document.getElementById('drawdownChart'), {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: 'Drawdown %',
+          data: sampled.map(d => ({ x: d.date, y: -d.drawdownPct })),
+          borderColor: '#ff4757',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          fill: true,
+          backgroundColor: 'rgba(255, 71, 87, 0.1)',
+          tension: 0.1,
+        },
+        ...thresholds.slice(0, 10), // limit to 10 threshold lines
+      ]
+    },
+    options: {
+      ...chartDefaults,
+      scales: {
+        ...chartDefaults.scales,
+        y: {
+          ...chartDefaults.scales.y,
+          ticks: {
+            ...chartDefaults.scales.y.ticks,
+            callback: v => v.toFixed(0) + '%',
+          }
+        }
+      }
+    }
+  });
+
+  // Purchase log table
+  const tbody = document.getElementById('purchaseLog');
+  tbody.innerHTML = purchases.map((p, i) => {
+    const pnl = p.portfolioValue - p.totalInvested;
+    const pnlPct = (pnl / p.totalInvested) * 100;
+    return `<tr>
+      <td>${i + 1}</td>
+      <td>${p.date}</td>
+      <td>Rs ${fmt(p.price)}</td>
+      <td>Rs ${fmt(p.ath)}</td>
+      <td><span class="pill drawdown">-${p.drawdownPct.toFixed(1)}%</span></td>
+      <td><span class="pill buy">Rs ${fmt(p.amount)}</span></td>
+      <td>${p.units.toFixed(2)}</td>
+      <td>Rs ${fmt(p.totalInvested)}</td>
+      <td>Rs ${fmt(p.portfolioValue)}</td>
+      <td class="${pnl >= 0 ? 'positive' : 'negative'}">${fmtPct(pnlPct)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// Load data on start
+loadData();
+</script>
+</body>
+</html>
