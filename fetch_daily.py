@@ -197,8 +197,23 @@ def main():
     added = merge_and_save(existing, new_records)
     if added > 0:
         log.info(f"Successfully added {added} new trading day(s)")
+        git_push(added)
     else:
         log.info("No new trading days found (weekend/holiday?)")
+
+
+def git_push(added):
+    """Auto-commit and push updated data to GitHub so Streamlit Cloud redeploys."""
+    import subprocess
+    repo_dir = os.path.dirname(os.path.abspath(__file__))
+    try:
+        subprocess.run(["git", "add", "data/NIFTY_FUT_2022_2026.json"], cwd=repo_dir, check=True)
+        msg = f"data: +{added} trading day(s) [{datetime.now().strftime('%Y-%m-%d')}]"
+        subprocess.run(["git", "commit", "-m", msg], cwd=repo_dir, check=True)
+        subprocess.run(["git", "push", "origin", "main"], cwd=repo_dir, check=True)
+        log.info(f"Pushed to GitHub: {msg}")
+    except subprocess.CalledProcessError as e:
+        log.warning(f"Git push failed: {e}")
 
 
 if __name__ == "__main__":
